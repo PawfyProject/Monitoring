@@ -1,3 +1,4 @@
+
 print("🚀 PAWFY STARTING...")
 
 local HttpService = game:GetService("HttpService")
@@ -10,7 +11,6 @@ local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 
---// EXECUTOR CHECK
 local request = http_request or (http and http.request) or (syn and syn.request) or request
 local hasFileFunctions = (writefile and readfile and isfile)
 
@@ -122,7 +122,7 @@ if not webhook or webhook == "" then
     info.Size = UDim2.fromScale(0.9, 0.15)
     info.Position = UDim2.fromScale(0.05, 0.78)
     info.BackgroundTransparency = 1
-    info.Text = "Multi-instance monitor with embed\nLeave blank to skip"
+    info.Text = "Multi-instance monitor with Discord embed\nMonitoring via webhook only (no in-game GUI)"
     info.TextColor3 = Color3.fromRGB(180, 180, 180)
     info.Font = Enum.Font.Gotham
     info.TextSize = 11
@@ -251,50 +251,18 @@ end
 
 print("Optimization complete")
 
-local fpsGui = Instance.new("ScreenGui")
-fpsGui.Name = "PawfyMonitor"
-fpsGui.ResetOnSpawn = false
-
-pcall(function()
-    fpsGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-end)
-
-if not fpsGui.Parent then
-    fpsGui.Parent = CoreGui
-end
-
-local fpsFrame = Instance.new("Frame")
-fpsFrame.Size = UDim2.new(0, 150, 0, 32)
-fpsFrame.Position = UDim2.new(1, -160, 0, 10)
-fpsFrame.BackgroundColor3 = Color3.new(0,0,0)
-fpsFrame.BackgroundTransparency = 0.2
-fpsFrame.BorderSizePixel = 0
-fpsFrame.Parent = fpsGui
-
-local fpsCorner = Instance.new("UICorner")
-fpsCorner.CornerRadius = UDim.new(0, 8)
-fpsCorner.Parent = fpsFrame
-
-local fpsText = Instance.new("TextLabel")
-fpsText.Size = UDim2.new(1,0,1,0)
-fpsText.BackgroundTransparency = 1
-fpsText.Font = Enum.Font.GothamBold
-fpsText.TextSize = 12
-fpsText.TextColor3 = Color3.fromRGB(0,255,100)
-fpsText.Text = "PAWFY ACTIVE"
-fpsText.Parent = fpsFrame
-
 local frames = 0
-local lastTime = tick()
 local currentFPS = 0
 
 RunService.RenderStepped:Connect(function()
     frames = frames + 1
-    if tick() - lastTime >= 1 then
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(1)
         currentFPS = frames
-        fpsText.Text = string.format("FPS: %d | PAWFY", frames)
         frames = 0
-        lastTime = tick()
     end
 end)
 
@@ -347,7 +315,6 @@ if request and webhook and webhook ~= "SKIPPED" then
     end
     
     local function sendEmbed(allData)
-
         local sortedNames = {}
         local totalRam = 0
         
@@ -357,11 +324,11 @@ if request and webhook and webhook ~= "SKIPPED" then
         end
         
         table.sort(sortedNames)
-
+        
         if sortedNames[1] ~= LocalPlayer.Name then
             return
         end
-
+        
         local lines = {}
         table.insert(lines, "👤 **User** | ⏳ **Up** | 🖥️ **FPS** | 🧠 **RAM** | 📡 **Ping**")
         table.insert(lines, "--------------------------------------------------")
@@ -388,7 +355,7 @@ if request and webhook and webhook ~= "SKIPPED" then
             embeds = {
                 {
                     title = "🛡️ PAWFY ALL-IN-ONE MONITOR",
-                    color = 65280, -- 0x00FF7F in decimal
+                    color = 65280,
                     description = description,
                     footer = {
                         text = "Optimizer Active • Safe Mode"
@@ -408,7 +375,6 @@ if request and webhook and webhook ~= "SKIPPED" then
         local url = msgId and (webhook .. "/messages/" .. msgId) or (webhook .. "?wait=true")
         local method = msgId and "PATCH" or "POST"
         
-        -- Send request
         local success, result = pcall(function()
             return request({
                 Url = url,
@@ -430,9 +396,9 @@ if request and webhook and webhook ~= "SKIPPED" then
             end
         end
     end
-
+    
     task.spawn(function()
-        task.wait(2) -- Wait for FPS to stabilize
+        task.wait(3)
         local data = updateLocalData(false)
         sendEmbed(data)
     end)
@@ -443,7 +409,7 @@ if request and webhook and webhook ~= "SKIPPED" then
             
             local data = updateLocalData(false)
             sendEmbed(data)
-
+            
             pcall(function()
                 if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
                     LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.RunningNoPhysics)
@@ -457,17 +423,25 @@ else
     print("Webhook system skipped")
 end
 
-game:BindToClose(function()
+local function onLeaving()
     if hasFileFunctions then
         local allData = {}
-        pcall(function()
-            if isfile(DATA_PATH) then
-                allData = HttpService:JSONDecode(readfile(DATA_PATH))
-            end
-        end)
+        local success, content = pcall(readfile, DATA_PATH)
+        if success then
+            pcall(function()
+                allData = HttpService:JSONDecode(content)
+            end)
+        end
         allData[LocalPlayer.Name] = nil
         pcall(writefile, DATA_PATH, HttpService:JSONEncode(allData))
     end
+end
+
+-- Use PlayerRemoving for the LocalPlayer
+Players.PlayerRemoving:Connect(function(player)
+    if player == LocalPlayer then
+        onLeaving()
+    end
 end)
 
-print("✅ PAWFY ALL-IN-ONE MONITOR LOADED")
+print("✅ PAWFY ALL-IN-ONE MONITOR LOADED (NO GUI MODE)")
