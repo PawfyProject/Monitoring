@@ -7,17 +7,16 @@ import threading, time
 app = Flask(__name__)
 
 # CONFIG
-CONFIG_FILE = "/storage/emulated/0/Download/WinterHub/auto_rejoin.conf"
+SERVER_CONFIG = "/storage/emulated/0/Download/WinterHub/auto_rejoin.conf"
 WEBHOOK = "https://discord.com/api/webhooks/1471107667190612121/vCxaTbWvTNftpvv3o-YmOBH4oJ9KfB36U2wwznOwNtZ2UjRYFNftIWtw-E6AQ36Vz50J"
 WEBHOOK_MESSAGE_ID = None
 HEARTBEAT_TIMEOUT = 120  # 2 menit
 
 # LOAD CONFIG
 servers = {}
-if os.path.exists(CONFIG_FILE):
-    with open(CONFIG_FILE) as f:
+if os.path.exists(SERVER_CONFIG):
+    with open(SERVER_CONFIG) as f:
         lines = f.readlines()
-    shared_links_count = 0
     config_dict = {}
     for line in lines:
         if "=" in line:
