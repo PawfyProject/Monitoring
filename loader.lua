@@ -3,42 +3,67 @@ local Players = game:GetService("Players")
 local Http = HttpService
 
 -- CONFIG FILE
-local CONFIG_PATH = "/storage/emulated/0/Download/WinterHub/auto_rejoin.conf"
+local SERVER_CONFIG = "/storage/emulated/0/Download/WinterHub/auto_rejoin.conf"
+local HOST_CONFIG = "/storage/emulated/0/Download/WinterHub/host_config.conf"
 
--- READ CONFIG
-local SERVER_NAME = "UNKNOWN"
+-- VARIABLES
 local DEVICE_ID = "UNKNOWN"
 local HOST = "http://127.0.0.1:5000/update"
+local SERVER_LIST = {}
+local SERVER_INDEX = 1
 
-local function read_config()
-    local file = io.open(CONFIG_PATH,"r")
-    if not file then return end
-    for line in file:lines() do
-        if line:find("device_label=") then
-            DEVICE_ID = line:match("device_label=(.*)")
-        elseif line:find("shared_link_1_name=") then
-            SERVER_NAME = line:match("shared_link_1_name=(.*)")
-        elseif line:find("host_url=") then
-            HOST = line:match("host_url=(.*)")
+-- READ SERVER CONFIG
+do
+    local file = io.open(SERVER_CONFIG,"r")
+    if file then
+        local config = {}
+        for line in file:lines() do
+            if line:find("=") then
+                local k,v = line:match("([^=]+)=(.*)")
+                if k and v then config[k] = v end
+            end
         end
+        file:close()
+
+        if config["device_label"] then DEVICE_ID = config["device_label"] end
+        local count = tonumber(config["shared_links_count"]) or 0
+        for i=1,count do
+            local name = config["shared_link_"..i.."_name"]
+            if name then table.insert(SERVER_LIST, name) end
+        end
+        if #SERVER_LIST > 0 then SERVER_INDEX = 1 end
     end
-    file:close()
 end
 
-read_config()
+-- READ HOST CONFIG
+do
+    local file = io.open(HOST_CONFIG,"r")
+    if file then
+        for line in file:lines() do
+            if line:find("host_url=") then
+                HOST = line:match("host_url=(.*)")
+            end
+        end
+        file:close()
+    end
+end
+
+-- GET CURRENT SERVER
+local function current_server()
+    if #SERVER_LIST == 0 then return "UNKNOWN" end
+    return SERVER_LIST[SERVER_INDEX]
+end
 
 -- SEND STATUS
 local function send(status)
     local data = {
         account = Players.LocalPlayer.Name,
-        server = SERVER_NAME,
+        server = current_server(),
         status = status,
         device = DEVICE_ID
     }
     local json = Http:JSONEncode(data)
-    pcall(function()
-        Http:PostAsync(HOST,json,Enum.HttpContentType.ApplicationJson)
-    end)
+    pcall(function() Http:PostAsync(HOST,json,Enum.HttpContentType.ApplicationJson) end)
 end
 
 -- JOIN SERVER
@@ -48,11 +73,11 @@ send("active")
 spawn(function()
     while true do
         send("active")
-        wait(20) -- heartbeat setiap 20 detik
+        wait(20)
     end
 end)
 
--- DETECT OFFLINE / LEAVE
+-- OFFLINE DETECT
 Players.LocalPlayer.OnDestroy:Connect(function()
     send("offline")
 end)
